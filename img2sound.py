@@ -17,6 +17,12 @@ def parse_args():
         type=str,
         help="Path to the image.",
     )
+    parser.add_argument(
+        "-s",
+        "--show",
+        action="store_true",
+        help="Show the images processed.",
+    )
 
     return parser.parse_args()
 
@@ -31,21 +37,28 @@ def show_img(img):
     cv2.destroyAllWindows()
 
 
-def show_hsv(img):
-    bgr_img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+def bgr_to_hsv(bgr_img):
     hsv_img = cv2.cvtColor(bgr_img, cv2.COLOR_BGR2HSV)
+    return hsv_img
+
+
+def rgb_to_bgr(rgb_img):
+    bgr_img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+    return bgr_img
+
+
+def show_imgs(img_dict):
     # Plot the image
     fig, axs = plt.subplots(1, 3, figsize=(15, 15))
     names = ["BGR", "RGB", "HSV"]
-    imgs = [bgr_img, img, hsv_img]
+    imgs = [img_dict["bgr"], img_dict["rgb"], img_dict["hsv"]]
     i = 0
     for elem in imgs:
         axs[i].title.set_text(names[i])
         axs[i].imshow(elem)
         axs[i].grid(False)
         i += 1
-    # plt.show()
-    return hsv_img
+    plt.show()
 
 
 def extract_hues(hsv_img):
@@ -91,31 +104,36 @@ def notes_to_audio(notes):
     return song
 
 
-def main():
-    args = parse_args()
-
-    print("Load image")
-    img_path = args.input
+def check_input(path):
     if not os.path.exists(img_path):
         print("{} does not exist!".format(img_path))
         exit(1)
     if not img_path.endswith(".jpg"):
         print("{} is not a JPG file!".format(img_path))
         exit(2)
+    return True
+
+def main():
+    args = parse_args()
+
+    print("Load image")
+    img_path = args.input
+    check_input(img_path)
     img_name = os.path.splitext(os.path.basename(img_path))[0]
-    img = load_image(img_path)
-    # show_img(img)
-    hsv_img = show_hsv(img)
+
+    # Load the image as RGB
+    rgb_img = load_image(img_path)
+    # Convert the image from RGB to BGR and HSV color systems
+    bgr_img = rgb_to_bgr(rgb_img)
+    hsv_img = bgr_to_hsv(bgr_img)
+    if args.show:
+        show_imgs({"rgb": rgb_img, "bgr": bgr_img, "hsv": hsv_img})
     hues = extract_hues(hsv_img)
-    print(max(hues))
-    print(min(hues))
-    print(len(hues))
+    
     notes = hues_to_freq(hues[1228300:1229300])
-    print(max(notes))
-    print(min(notes))
     song = notes_to_audio(notes)
 
-    wavfile.write("water.wav", rate=SAMPLE_RATE, data=song.T.astype(np.float32))
+    wavfile.write(img_name + ".wav", rate=SAMPLE_RATE, data=song.T.astype(np.float32))
 
 
 if __name__ == "__main__":
